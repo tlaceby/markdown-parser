@@ -64,6 +64,11 @@ const char* tokentype_string (TokenType tt) {
     }
 }
 
+int is_skippable (char c) {
+    return !(c == SPACE_CHAR || c == NEWLINE_CHAR || c == CARRIAGE_RETURN_CHAR || c == EOF
+    || c == 0 || c == '*' || c == '`' || c == '!' || c == '(');
+}
+
 
 void debug_token (Token token) {
     if (token.type == NEW_LINE) printf("Token(%s)\n", tokentype_string(token.type));
@@ -91,6 +96,22 @@ Tokens tokenize (Error* status, char* src) {
         case TAB_CHAR:
             push_token(&tokens, make_token(TAB, alloc_slice(src, pos++, 1)));
             break;
+        case '*':
+            if (src[pos + 1] == '*') {
+                push_token(&tokens, make_token(BOLD, alloc_slice(src, pos, 2)));
+                pos += 2;
+            } else {
+                push_token(&tokens, make_token(ITALIC, alloc_slice(src, pos++, 1)));
+            }
+        case '`':
+            if (src[pos + 1] == '`' && src[pos + 2] == '`') {
+                // Parse Code Block
+            } else {
+                // Inline Snippet
+
+            }
+
+            break;
         case '#': {
             size_t token_size = 0;
             while (src[pos++] == '#' && ++token_size);
@@ -102,9 +123,15 @@ Tokens tokenize (Error* status, char* src) {
         }
 
         
-        default:
-            printf("Character Found: %d\n", src[pos++]);
+        default: {
+            size_t token_size = 0;
+            while (is_skippable(src[pos++]) && ++token_size);
+
+            char* text = alloc_slice(src, pos - token_size - 1, token_size);
+            push_token(&tokens, make_token(TEXT, text));
+            pos--;
             break;
+        }
         }
     }
     
